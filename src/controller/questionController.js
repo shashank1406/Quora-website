@@ -1,6 +1,7 @@
 const questionModel = require('../model/questionModel')
-const QuestionModel = require('../model/questionModel')
 const answerModel= require('../model/answerModel')
+const ObjectId = require('mongoose').Types.ObjectId;
+const userModel=require('../model/userModel')
 
 
 
@@ -23,6 +24,31 @@ const isValidRequestBody = function (requestBody) {
 
 const createQuestion = async function (req, res) {
     try {
+        const { askedBy,tag,description } = req.body;
+        if (!isValidRequestBody(req.body)) {
+            return res.status(400).send({ status: false, message: "Please provide data for successful registration" });
+        }
+
+        let checkid = ObjectId.isValid(askedBy);
+        if (!checkid) {
+            return res.status(404).send({ status: false, message: "Please provide a valid userId " })
+        }
+        if (req.userId != askedBy) {
+            return res.status(400).send({ status: false, message: "Sorry you are not authorized to do this action" })
+        }
+        if (!isValid(description)) {
+            return res.status(400).send({ status: false, message: "Please provide description field" });
+        }
+        if (!isValid(tag)) {
+            return res.status(400).send({ status: false, message: "Please provide tag field" });
+        }
+        
+        const checkUser = await userModel.findOne({ _id: askedBy })
+        if (!checkUser) {
+            return res.status(404).send({ status: false, msg: 'you are not a valid user' })
+        }
+        const data = await questionModel.create(req.body)
+        return res.status(201).send({ status:true, message: "successfully", data })
 
     } catch (error) {
         console.log(error)
@@ -37,7 +63,19 @@ const createQuestion = async function (req, res) {
 
 const getquestions = async function (req, res) {
     try {
-
+        const questionId = req.params.questionId
+        let checkid = ObjectId.isValid(questionId);
+        if (!checkid) {
+            return res.status(404).send({ status: false, message: "Please provide a valid questionId " })
+        }
+        let checkque = await questionModel.findOne({ _id: questionId, isDeleted: false })
+        if (!checkque) {
+            return res.status(404).send({ status: false, message: " questionId not found " })
+        }
+        const answers = await answerModel.find({ questionId: questionId })
+        checkque = checkque.toObject()
+        checkque['answers']= answers
+        return res.status(200).send({ status: true, msg: 'successful details of answers ', data : answers})
     } catch (error) {
         console.log(error)
         return res.status(500).send({ status: false, message: error.message });
@@ -52,7 +90,7 @@ const getquestions = async function (req, res) {
 const getQuestionsById = async function (req, res) {
     try {
         const questionId = req.params.questionId
-        const questiondetail = await QuestionModel.findOne({ _id: questionId, isDeleted: false })
+        const questiondetail = await questionModel.findOne({ _id: questionId, isDeleted: false })
         if (!questiondetail) {
             return res.status(404).send({ status: false, message: 'question does not exist' })
         }
@@ -153,7 +191,7 @@ const deleteQuestionById = async function (req, res) {
 // -------------------- feature two completed ---------------------------------------------------------------------------
 
 
-module.exports.createQuestionr = createQuestion
+module.exports.createQuestion = createQuestion
 module.exports.getquestions = getquestions
 module.exports.getQuestionsById = getQuestionsById
 module.exports.updateQuestionById = updateQuestionById
